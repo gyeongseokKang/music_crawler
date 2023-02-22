@@ -1,13 +1,15 @@
-import { defineConfig } from 'cypress'
+import { defineConfig } from "cypress";
 
 export default defineConfig({
   e2e: {
-    baseUrl: 'http://localhost:3000',
+    baseUrl: "https://www.epidemicsound.com/music/genres",
   },
   component: {
     devServer: {
-      framework: 'next',
-      bundler: 'webpack',
+      framework: "next",
+      bundler: "webpack",
     },
   },
-})
+  viewportHeight: 2000,
+  viewportWidth: 1600,
+});
