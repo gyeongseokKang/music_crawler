@@ -3,8 +3,8 @@ describe("정책", () => {
     cy.visit("https://www.epidemicsound.com");
     cy.contains("Accept").click();
     cy.get('[data-cy-login-button="true"]').click();
-    cy.get('[id="username"]').click().type("");
-    cy.get('[id="password"]').click().type("");
+    cy.get('[id="username"]').click().type("jow428@naver.com");
+    cy.get('[id="password"]').click().type("ideA1968!!");
     cy.get('[id="kc-login"]').click();
 
     cy.url().should("include", "https://www.epidemicsound.com/music/"); // => true
