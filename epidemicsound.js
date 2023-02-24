@@ -2,6 +2,11 @@ const puppeteer = require("puppeteer");
 const fs = require("fs");
 
 (async () => {
+  const start = 0;
+  const end = 1;
+  const onlyMeta = false;
+  const targetPageUrl = "https://www.epidemicsound.com/music/themes/wedding-romance/antivalentines/";
+  const targetMetaFileName = "genresChildren2";
   // headless 브라우저 실행
   const browser = await puppeteer.launch({ headless: false });
   // 새로운 페이지 열기
@@ -34,35 +39,42 @@ const fs = require("fs");
     await page.click("#kc-login");
     await sleep(2000);
   }
-  await sleep(2000);
+  await sleep(5000);
 
-  await page.goto("https://www.epidemicsound.com/music/genres/comedy/?vocals=false");
+  await page.goto(targetPageUrl);
   //   await page.goto("https://www.epidemicsound.com/music/genres/comedy/?bpm=0%2C140&vocals=false");
 
-  await sleep(2000);
+  await sleep(5000);
 
-  let jsonMetaList = await page.evaluate(async () => {
-    return await new Promise((resolve) => {
-      const metaList = [];
-      function sleep(m) {
-        return new Promise((r) => setTimeout(r, m));
-      }
+  console.time();
 
-      async function loadMoreDate() {
-        const viewMoreEl = document.querySelector(
-          `#mainContentContainer > main > div.css-1mqbghn > div > div > div:nth-child(2) > div > div > div:nth-child(2) > button`
-        );
-        if (viewMoreEl) {
-          viewMoreEl.click();
-        } else {
-          return "fail";
-        }
-        await sleep(5000);
-      }
+  const metaList = [];
+  let list = new Array(end);
 
-      async function promiseFunction({ number, start, onlyMeta }) {
-        console.log(number, "번째 다운로드 진행중");
+  for (let i = 0; i < list.length; i++) {
+    list[i] = i;
+  }
+  for (let number of list) {
+    const targetMeta = await page.evaluate(
+      async (number, start, onlyMeta) => {
+        console.log(number, start, onlyMeta);
         let meta;
+        function sleep(m) {
+          return new Promise((r) => setTimeout(r, m));
+        }
+        async function loadMoreDate() {
+          const viewMoreEl = document.querySelector(
+            `#mainContentContainer > main > div.css-1mqbghn > div > div > div:nth-child(2) > div > div > div:nth-child(2) > button`
+          );
+          if (viewMoreEl) {
+            viewMoreEl.click();
+          } else {
+            return "fail";
+          }
+          await sleep(5000);
+        }
+
+        console.log(number, "번째 다운로드 진행중");
         let targetEl = document.querySelector(`div[data-index="${number}"] button[aria-label="Download"]`);
 
         while (!targetEl) {
@@ -91,7 +103,19 @@ const fs = require("fs");
         if (onlyMeta) {
           const metaEl = document.querySelectorAll(`div[data-index="${number}"] [data-testid="track-row"]>div`);
           const title = metaEl[0]?.querySelectorAll("a")?.[0]?.innerText;
-          const artist = metaEl[0]?.querySelectorAll("a")?.[1]?.innerText;
+          const realArtist = metaEl[0]?.querySelector(`a[href*="/artists/"`)?.innerText;
+          let linkArtist = metaEl[0]
+            ?.querySelector(`a[href*="/artists/"`)
+            ?.href?.split("/artists/")?.[1]
+            ?.split("/")?.[0]
+            ?.replaceAll("-", " ")
+            ?.split(" ");
+
+          for (let i = 0; i < linkArtist.length; i++) {
+            linkArtist[i] = linkArtist[i].charAt(0).toUpperCase() + linkArtist[i].slice(1);
+          }
+          const displayArtist = linkArtist.join(" ");
+
           const duration = metaEl[3]?.querySelectorAll("span")?.[0]?.innerText;
           const bpm = metaEl[3]?.querySelectorAll("span")?.[1]?.innerText;
           const genres = Array.from(metaEl[4]?.querySelectorAll('a[href*="music/genres"]') || [])?.map(
@@ -102,14 +126,18 @@ const fs = require("fs");
           );
 
           meta = {
-            fileName: `ES_${title} - ${artist}.wav`,
+            fileName: `ES_${title} - ${displayArtist}.wav`,
             title: title,
-            artist: artist,
+            realArtist: realArtist,
+            displayArtist: displayArtist,
             duration: duration,
             bpm: bpm,
             genres: genres,
             moods: moods,
           };
+
+          console.log(meta);
+
           return meta;
         }
         await targetEl.click();
@@ -117,30 +145,48 @@ const fs = require("fs");
 
         Array.from(document.querySelectorAll(`div[role="dialog"] button p`))
           .filter((span) => {
-            return span.innerText === "MP3"; // filter il for specific text
+            return span.innerText.toUpperCase().includes("MP3");
           })
           .forEach((element) => {
-            if (element) element.click(); // click on il with specific text
+            if (element) {
+              console.log("mp3", element);
+              element.click();
+            }
           });
 
         await sleep(500);
-        Array.from(document.querySelectorAll(`div ul li`))
+
+        Array.from(document.querySelectorAll(`div ul li[role="option"]`))
           .filter((span) => {
-            return span.innerText === "WAV"; // filter il for specific text
+            return span.innerText.toUpperCase().includes("WAV");
           })
           .forEach((element) => {
-            if (element) element.click(); // click on il with specific text
+            if (element) element.click();
           });
+
         await sleep(500);
+
         Array.from(document.querySelectorAll(`div[role="dialog"] button span`))
           .filter((span) => {
-            return span.innerText === (!onlyMeta ? "Download" : "Cancel"); // filter il for specific text
+            return span.innerText === "Download";
           })
           .forEach((element) => {
             if (element) {
               const metaEl = document.querySelectorAll(`div[data-index="${number}"] [data-testid="track-row"]>div`);
               const title = metaEl[0]?.querySelectorAll("a")?.[0]?.innerText;
-              const artist = metaEl[0]?.querySelectorAll("a")?.[1]?.innerText;
+              const realArtist = metaEl[0]?.querySelector(`a[href*="/artists/"`)?.innerText;
+              let linkArtist = metaEl[0]
+                ?.querySelector(`a[href*="/artists/"`)
+                ?.href?.split("/artists/")?.[1]
+                ?.split("/")?.[0]
+                ?.replaceAll("-", " ")
+                ?.split(" ");
+
+              for (let i = 0; i < linkArtist.length; i++) {
+                linkArtist[i] = linkArtist[i].charAt(0).toUpperCase() + linkArtist[i].slice(1);
+              }
+              const displayArtist = linkArtist.join(" ");
+
               const duration = metaEl[3]?.querySelectorAll("span")?.[0]?.innerText;
               const bpm = metaEl[3]?.querySelectorAll("span")?.[1]?.innerText;
               const genres = Array.from(metaEl[4]?.querySelectorAll('a[href*="music/genres"]') || [])?.map(
@@ -151,50 +197,34 @@ const fs = require("fs");
               );
 
               meta = {
-                fileName: `ES_${title} - ${artist}.wav`,
+                fileName: `ES_${title} - ${displayArtist}.wav`,
                 title: title,
-                artist: artist,
+                realArtist: realArtist,
+                displayArtist: displayArtist,
                 duration: duration,
                 bpm: bpm,
                 genres: genres,
                 moods: moods,
               };
-              console.log(title, artist, duration, bpm, genres, moods);
+              console.log(meta);
 
               element.click();
             }
           });
-        await sleep(2000);
+        await sleep(1000);
         return meta;
-      }
-
-      (async () => {
-        console.time();
-        const start = 1000;
-        const end = 1400;
-        let list = new Array(end);
-
-        for (let i = 0; i < list.length; i++) {
-          list[i] = i;
-        }
-        for (let element of list) {
-          const meta = await promiseFunction({
-            number: element,
-            start: start,
-            onlyMeta: true,
-          });
-          if (meta) {
-            metaList.push(meta);
-          }
-        }
-        console.log(`총 ${list.length}중 ${metaList.length} 다운로드 완료`);
-        console.timeEnd();
-        resolve(metaList);
-      })();
-    });
-  });
-
-  await fs.appendFileSync("ES_genres_comedy2.json", JSON.stringify(jsonMetaList));
+      },
+      number,
+      start,
+      onlyMeta
+    );
+    if (targetMeta) {
+      await fs.appendFileSync(`${targetMetaFileName}.json`, JSON.stringify(targetMeta) + ",");
+    }
+  }
+  console.log(`총 ${list.length}중 ${metaList.length} 다운로드 완료`);
+  console.timeEnd();
+  //   await fs.appendFileSync("ES_genres_comedy2.json", JSON.stringify(...jsonMetaList));
 
   //   await browser.close();
 })();
