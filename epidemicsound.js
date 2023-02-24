@@ -82,12 +82,36 @@ const fs = require("fs");
           return;
         }
         targetEl.scrollIntoView();
-
+        await sleep(100);
         if (start > number) {
           console.log(number, "번째 다운로드 실패 - start보다 낮음");
           return;
         }
 
+        if (onlyMeta) {
+          const metaEl = document.querySelectorAll(`div[data-index="${number}"] [data-testid="track-row"]>div`);
+          const title = metaEl[0]?.querySelectorAll("a")?.[0]?.innerText;
+          const artist = metaEl[0]?.querySelectorAll("a")?.[1]?.innerText;
+          const duration = metaEl[3]?.querySelectorAll("span")?.[0]?.innerText;
+          const bpm = metaEl[3]?.querySelectorAll("span")?.[1]?.innerText;
+          const genres = Array.from(metaEl[4]?.querySelectorAll('a[href*="music/genres"]') || [])?.map(
+            (item) => item?.innerText
+          );
+          const moods = Array.from(metaEl[4]?.querySelectorAll('a[href*="music/moods"]') || [])?.map(
+            (item) => item?.innerText
+          );
+
+          meta = {
+            fileName: `ES_${title} - ${artist}.wav`,
+            title: title,
+            artist: artist,
+            duration: duration,
+            bpm: bpm,
+            genres: genres,
+            moods: moods,
+          };
+          return meta;
+        }
         await targetEl.click();
         await sleep(500);
 
@@ -146,8 +170,8 @@ const fs = require("fs");
 
       (async () => {
         console.time();
-        const start = 0;
-        const end = 1000;
+        const start = 1000;
+        const end = 1400;
         let list = new Array(end);
 
         for (let i = 0; i < list.length; i++) {
@@ -170,7 +194,7 @@ const fs = require("fs");
     });
   });
 
-  await fs.appendFileSync("ES_genres_comedy.json", JSON.stringify(jsonMetaList));
+  await fs.appendFileSync("ES_genres_comedy2.json", JSON.stringify(jsonMetaList));
 
   //   await browser.close();
 })();
