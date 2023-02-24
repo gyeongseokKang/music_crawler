@@ -36,7 +36,8 @@ const fs = require("fs");
   }
   await sleep(2000);
 
-  await page.goto("https://www.epidemicsound.com/music/genres/children/?vocals=false");
+  await page.goto("https://www.epidemicsound.com/music/genres/comedy/?vocals=false");
+  //   await page.goto("https://www.epidemicsound.com/music/genres/comedy/?bpm=0%2C140&vocals=false");
 
   await sleep(2000);
 
@@ -48,30 +49,45 @@ const fs = require("fs");
       }
 
       async function loadMoreDate() {
-        document
-          .querySelector(
-            `#mainContentContainer > main > div.css-1mqbghn > div > div > div:nth-child(2) > div > div > div:nth-child(2) > button`
-          )
-          .click();
+        const viewMoreEl = document.querySelector(
+          `#mainContentContainer > main > div.css-1mqbghn > div > div > div:nth-child(2) > div > div > div:nth-child(2) > button`
+        );
+        if (viewMoreEl) {
+          viewMoreEl.click();
+        } else {
+          return "fail";
+        }
         await sleep(5000);
       }
 
-      async function promiseFunction(number) {
+      async function promiseFunction({ number, start, onlyMeta }) {
         console.log(number, "번째 다운로드 진행중");
         let meta;
         let targetEl = document.querySelector(`div[data-index="${number}"] button[aria-label="Download"]`);
 
         while (!targetEl) {
           window.scrollBy({ top: 99999 });
-          await loadMoreDate();
+          const response = await loadMoreDate();
+          if (response === "fail") {
+            break;
+          }
           console.log(number, "이후 데이터 불러오는중");
           const NextEl = document.querySelector(`div[data-index="${number}"] button[aria-label="Download"]`);
           if (NextEl) {
             targetEl = NextEl;
           }
         }
-
+        if (!targetEl) {
+          console.log(number, "번째 다운로드 실패 - 대상없음");
+          return;
+        }
         targetEl.scrollIntoView();
+
+        if (start > number) {
+          console.log(number, "번째 다운로드 실패 - start보다 낮음");
+          return;
+        }
+
         await targetEl.click();
         await sleep(500);
 
@@ -94,7 +110,7 @@ const fs = require("fs");
         await sleep(500);
         Array.from(document.querySelectorAll(`div[role="dialog"] button span`))
           .filter((span) => {
-            return span.innerText === "Download"; // filter il for specific text
+            return span.innerText === (!onlyMeta ? "Download" : "Cancel"); // filter il for specific text
           })
           .forEach((element) => {
             if (element) {
@@ -130,23 +146,31 @@ const fs = require("fs");
 
       (async () => {
         console.time();
-        let list = new Array(1015);
+        const start = 0;
+        const end = 1000;
+        let list = new Array(end);
 
         for (let i = 0; i < list.length; i++) {
           list[i] = i;
         }
-        //   list = list.slice(100, 200);
         for (let element of list) {
-          const meta = await promiseFunction(element);
-          metaList.push(meta);
+          const meta = await promiseFunction({
+            number: element,
+            start: start,
+            onlyMeta: true,
+          });
+          if (meta) {
+            metaList.push(meta);
+          }
         }
+        console.log(`총 ${list.length}중 ${metaList.length} 다운로드 완료`);
         console.timeEnd();
         resolve(metaList);
       })();
     });
   });
 
-  await fs.appendFileSync("ES_genres_children.json", JSON.stringify(jsonMetaList));
+  await fs.appendFileSync("ES_genres_comedy.json", JSON.stringify(jsonMetaList));
 
   //   await browser.close();
 })();
