@@ -3,14 +3,33 @@ const fs = require("fs");
 
 (async () => {
   const start = 0;
-  const end = 1;
+  const end = 1800;
   const onlyMeta = false;
-  const targetPageUrl = "https://www.epidemicsound.com/music/themes/wedding-romance/antivalentines/";
-  const targetMetaFileName = "genresChildren2";
-  // headless 브라우저 실행
+  const targetPageUrl = "https://www.epidemicsound.com/music/genres/beautiful/?vocals=false";
+
+  // 파일 디렉토리 만들기
+  const targetMetaFileNameList = targetPageUrl
+    .split("/?vocals")[0]
+    .replace("https://www.epidemicsound.com/music/genres/", "")
+    .replaceAll("-", " ")
+    .split(" ");
+
+  for (let i = 0; i < targetMetaFileNameList.length; i++) {
+    targetMetaFileNameList[i] = targetMetaFileNameList[i].charAt(0).toUpperCase() + targetMetaFileNameList[i].slice(1);
+  }
+  const targetMetaFileName = targetMetaFileNameList.join("");
+
+  console.log(targetMetaFileName, "장르 다운로드 시작");
+  mkdir(`./${targetMetaFileName}`);
   const browser = await puppeteer.launch({ headless: false });
   // 새로운 페이지 열기
   const page = await browser.newPage();
+
+  const client = await page.target().createCDPSession();
+  await client.send("Page.setDownloadBehavior", {
+    behavior: "allow",
+    downloadPath: `./${targetMetaFileName}`,
+  });
 
   await page.setViewport({
     width: 1600,
@@ -32,12 +51,13 @@ const fs = require("fs");
   await sleep(5000);
 
   if ((await page.$("#username")) !== null) {
-    await page.type("#username", "jow428@naver.com"); // <---------------------- 여기에 아이디 입력
+    await page.type("#username", "ken124499@gmail.com"); // <---------------------- 여기에 아이디 입력
     await sleep(1000);
     await page.type("#password", ""); // <---------------------- 여기에 아이디 입력
     await sleep(1000);
     await page.click("#kc-login");
     await sleep(2000);
+    console.log("ken124499@gmail.com", "로그인");
   }
   await sleep(5000);
 
@@ -218,11 +238,12 @@ const fs = require("fs");
       start,
       onlyMeta
     );
+    console.log(`총 ${number} / ${list.length} 다운로드 완료`);
     if (targetMeta) {
-      await fs.appendFileSync(`${targetMetaFileName}.json`, JSON.stringify(targetMeta) + ",");
+      await fs.appendFileSync(`${targetMetaFileName}/manifest.json`, JSON.stringify(targetMeta) + ",");
     }
   }
-  console.log(`총 ${list.length}중 ${metaList.length} 다운로드 완료`);
+  console.log(`총 ${list.length}중 ${list.length} 다운로드 완료`);
   console.timeEnd();
   //   await fs.appendFileSync("ES_genres_comedy2.json", JSON.stringify(...jsonMetaList));
 
@@ -231,4 +252,12 @@ const fs = require("fs");
 
 function sleep(m) {
   return new Promise((r) => setTimeout(r, m));
+}
+
+function mkdir(dirPath) {
+  const isExists = fs.existsSync(dirPath);
+  if (!isExists) {
+    fs.mkdirSync(dirPath, { recursive: true });
+    console.log(dirPath, "폴더 생성");
+  }
 }
